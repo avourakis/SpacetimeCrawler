@@ -2,7 +2,8 @@ import logging
 from datamodel.search.datamodel import ProducedLink, OneUnProcessedGroup, robot_manager, Link
 from spacetime.client.IApplication import IApplication
 from spacetime.client.declarations import Producer, GetterSetter, Getter
-#from lxml import html,etree
+from lxml import html,etree
+from io import StringIO
 import re, os
 from time import time
 
@@ -92,6 +93,29 @@ def extract_next_links(rawDatas):
 
     Suggested library: lxml
     '''
+    for i in rawDatas:
+
+        if i.error_message: #takes care of raw objects with error messages
+            i.bad_url = True
+            # check for dynamic ???
+
+        parser = etree.HTMLParser()
+        tree = etree.parse(StringIO(i.content.decode('utf-8')), parser)
+        urls = tree.xpath("//@href") #/a[not(contains(@href, '.php'))]
+
+
+    for url in urls:
+        if is_valid(url):
+            print (url)
+
+
+    # filter out 
+    # ends in .php
+    # nonetype raw object
+    # mailto
+    # ?
+    # 
+        
     return outputLinks
 
 def is_valid(url):
