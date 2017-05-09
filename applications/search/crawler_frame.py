@@ -7,6 +7,13 @@ from io import StringIO
 import re, os
 from time import time
 
+subdomaincount = dict() #keep track of all subdomains visited
+
+max_url = '' #url with most out links
+max_url_count = 0 #number of out links ^
+
+invalid_links = 0 #number of invalid links from the frontier
+
 try:
     # For python 2
     from urlparse import urlparse, parse_qs
@@ -78,10 +85,22 @@ def process_url_group(group, useragentstr):
     return extract_next_links(rawDatas), rawDatas
     
 #######################################################################################
+
 '''
 STUB FUNCTIONS TO BE FILLED OUT BY THE STUDENT.
 '''
+
+def save_to_file():
+    with open('analytics.txt', 'w') as file:
+        for key, value in subdomaincount.iteritems():
+            file.write("{}: {}\n".format(key, value))
+        file.write("MOST OUT LINKS: " + max_url + " " + str(max_url_count) + "\n")
+        file.write("INVALID URLS FROM THE FRONTIER: " + str(invalid_links))
+
 def extract_next_links(rawDatas):
+
+    count = 0
+
     outputLinks = list()
     '''
     rawDatas is a list of objs -> [raw_content_obj1, raw_content_obj2, ....]
@@ -93,29 +112,42 @@ def extract_next_links(rawDatas):
 
     Suggested library: lxml
     '''
+
     for i in rawDatas:
+
+        if (not is_valid(i.url)):
+            invalid_links += 1
 
         if i.error_message: #takes care of raw objects with error messages
             i.bad_url = True
             # check for dynamic ???
 
-        parser = etree.HTMLParser()
-        tree = etree.parse(StringIO(i.content.decode('utf-8')), parser)
-        urls = tree.xpath("//@href") #/a[not(contains(@href, '.php'))]
+        try:                
+            parser = etree.HTMLParser()
+            tree = etree.parse(StringIO(i.content.decode('utf-8')), parser)
+            urls = tree.xpath("//@href") #/a[not(contains(@href, '.php'))]
+        except:
+            print("ERROR")
 
 
-    for url in urls:
-        if is_valid(url):
-            print (url)
+
+        for url in urls:
+            if is_valid(url):
+                count += 1
+                split_url = url.split('.')
+                subdomain = split_url[1]
+                global subdomaincount
+                subdomaincount[subdomain] = subdomaincount.get(subdomain, 0) + 1
+
+        if max_url_count < count:
+            global max_url_count
+            global max_url
+            max_url = i.url
+            max_url_count = count
 
 
-    # filter out 
-    # ends in .php
-    # nonetype raw object
-    # mailto
-    # ?
-    # 
-        
+    save_to_file()
+       
     return outputLinks
 
 def is_valid(url):
@@ -125,16 +157,18 @@ def is_valid(url):
 
     This is a great place to filter out crawler traps.
     '''
+
     parsed = urlparse(url)
     if parsed.scheme not in set(["http", "https"]):
         return False
     try:
         return ".ics.uci.edu" in parsed.hostname \
-            and not re.match(".*\.(css|js|bmp|gif|jpe?g|ico" + "|png|tiff?|mid|mp2|mp3|mp4"\
+            and not re.match(".*mailto:.*|.*?(/.+?/).*?\1.*$|^.*?/(.+?/)\2.*|.*calendar.*|.*\.(php\?|css|js|bmp|gif|jpe?g|ico" + "|png|tiff?|mid|mp2|mp3|mp4"\
             + "|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf" \
             + "|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1" \
             + "|thmx|mso|arff|rtf|jar|csv"\
             + "|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+
 
     except TypeError:
         print ("TypeError for ", parsed)
