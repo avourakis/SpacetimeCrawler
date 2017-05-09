@@ -11,7 +11,6 @@ subdomaincount = dict() #keep track of all subdomains visited
 
 max_url = '' #url with most out links
 max_url_count = 0 #number of out links ^
-
 invalid_links = 0 #number of invalid links from the frontier
 
 try:
@@ -94,14 +93,15 @@ def save_to_file():
     with open('analytics.txt', 'w') as file:
         for key, value in subdomaincount.iteritems():
             file.write("{}: {}\n".format(key, value))
-        file.write("MOST OUT LINKS: " + max_url + " " + str(max_url_count) + "\n")
+        file.write("MOST OUT LINKS: " + max_url + "\nOUT LINKS: " + str(max_url_count) + "\n")
         file.write("INVALID URLS FROM THE FRONTIER: " + str(invalid_links))
 
 def extract_next_links(rawDatas):
 
-    count = 0
+    count = 0 #number of links from this rawData url
 
     outputLinks = list()
+
     '''
     rawDatas is a list of objs -> [raw_content_obj1, raw_content_obj2, ....]
     Each obj is of type UrlResponse  declared at L28-42 datamodel/search/datamodel.py
@@ -115,36 +115,36 @@ def extract_next_links(rawDatas):
 
     for i in rawDatas:
 
-        if (not is_valid(i.url)):
-            invalid_links += 1
+        # if (not is_valid(i.url)):
+        #     global invalid_links
+        #     invalid_links += 1
+        #     print("INVALID URL")
+        #     return
 
         if i.error_message: #takes care of raw objects with error messages
-            i.bad_url = True
-            # check for dynamic ???
+            print("ERROR MESSAGE")
+            return outputLinks
+            # i.bad_url = True
+            # return
 
         try:                
             parser = etree.HTMLParser()
             tree = etree.parse(StringIO(i.content.decode('utf-8')), parser)
             urls = tree.xpath("//@href") #/a[not(contains(@href, '.php'))]
         except:
-            print("ERROR")
+            print("ERROR PARSING")
 
-
-
-        for url in urls:
-            if is_valid(url):
-                count += 1
-                split_url = url.split('.')
-                subdomain = split_url[1]
-                global subdomaincount
-                subdomaincount[subdomain] = subdomaincount.get(subdomain, 0) + 1
+        for url in urls: #checking urls that is scraped from the rawdata url
+            if scraped_url_is_valid(url):
+                print(url)
+                count += 1 
 
         if max_url_count < count:
+            # if this url has more valid urls than the current max count url
             global max_url_count
             global max_url
             max_url = i.url
             max_url_count = count
-
 
     save_to_file()
        
@@ -162,13 +162,46 @@ def is_valid(url):
     if parsed.scheme not in set(["http", "https"]):
         return False
     try:
-        return ".ics.uci.edu" in parsed.hostname \
-            and not re.match(".*mailto:.*|.*?(/.+?/).*?\1.*$|^.*?/(.+?/)\2.*|.*calendar.*|.*\.(php\?|css|js|bmp|gif|jpe?g|ico" + "|png|tiff?|mid|mp2|mp3|mp4"\
+        state = ".ics.uci.edu" in parsed.hostname \
+            and not re.match(".*mailto:.*|.*(/misc|/policies|/degrees|/sao|/computing|sites|/all|/themes|/modules|/profiles|/css|/field|/node|/theme){2}.*|.*calendar.*|.*\.(php\?|css|js|bmp|gif|jpe?g|ico" + "|png|tiff?|mid|mp2|mp3|mp4"\
             + "|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf" \
             + "|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1" \
             + "|thmx|mso|arff|rtf|jar|csv"\
             + "|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+        if not state: #not a valid link
+            global invalid_links
+            invalid_links += 1
+            print "\nTHAT WAS AN INVALID LINK\n"
+        else: #valid link
+            split_url = url.split('.')
+            subdomain = split_url[1]
+            global subdomaincount
+            subdomaincount[subdomain] = subdomaincount.get(subdomain, 0) + 1
+        return state
 
+
+    except TypeError:
+        print ("TypeError for ", parsed)
+
+def scraped_url_is_valid(url):
+    '''
+    Function returns True or False based on whether the url has to be downloaded or not.
+    Robot rules and duplication rules are checked separately.
+
+    This is a great place to filter out crawler traps.
+    '''
+
+    parsed = urlparse(url)
+    if parsed.scheme not in set(["http", "https"]):
+        return False
+    try:
+        state = ".ics.uci.edu" in parsed.hostname \
+            and not re.match(".*mailto:.*|.*(/misc|/policies|/degrees|/sao|/computing|sites|/all|/themes|/modules|/profiles|/css|/field|/node|/theme){2}.*|.*calendar.*|.*\.(php\?|css|js|bmp|gif|jpe?g|ico" + "|png|tiff?|mid|mp2|mp3|mp4"\
+            + "|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf" \
+            + "|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1" \
+            + "|thmx|mso|arff|rtf|jar|csv"\
+            + "|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+        return state
 
     except TypeError:
         print ("TypeError for ", parsed)
