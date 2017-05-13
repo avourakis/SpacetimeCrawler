@@ -120,31 +120,46 @@ def extract_next_links(rawDatas):
         #     invalid_links += 1
         #     print("INVALID URL")
         #     return
+        
+        #Extract domain from URL
+        domain = '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(i.url)) 
 
-        if i.error_message: #takes care of raw objects with error messages
-            print("ERROR MESSAGE")
-            return outputLinks
+        #Checks if raw object has error message, if so, skips scraping its content
+        if not i.error_message:
+            print("ERROR MESSAGE") #FOR TESTING ONLY
             # i.bad_url = True
             # return
 
-        try:                
-            parser = etree.HTMLParser()
-            tree = etree.parse(StringIO(i.content.decode('utf-8')), parser)
-            urls = tree.xpath("//@href") #/a[not(contains(@href, '.php'))]
-        except:
-            print("ERROR PARSING")
+            try:                
+                parser = etree.HTMLParser()
+                tree = etree.parse(StringIO(i.content.decode('utf-8')), parser)
+                urls = tree.xpath("//@href") #/a[not(contains(@href, '.php'))]
+            except:
+                print("ERROR PARSING")
 
-        for url in urls: #checking urls that is scraped from the rawdata url
-            if scraped_url_is_valid(url):
-                print(url)
-                count += 1 
+            for url in urls: #checking urls that is scraped from the rawdata url
 
-        if max_url_count < count:
-            # if this url has more valid urls than the current max count url
-            global max_url_count
-            global max_url
-            max_url = i.url
-            max_url_count = count
+                if scraped_url_is_valid(url): #This can be done after checking if URL is absolute. Please verify - Andres
+                    print(url) #FOR TESTING ONLY
+                    count += 1 #Are you keeping track of valid or invalid URLs?? - Andres
+
+                #Check if URL is absolute
+                if not absolute_form(url):
+                    if url[0] == '/':
+                        absoluteURL = relative_to_absolute_url(domain, url)
+                    else:
+                        absoluteURL = relative_to_absolute_url(i.url, url)
+
+                    #outputLinks.append(absoluteURL) #UNCOMMENT WHEN READY
+                else:
+                    #outputLinks.append(url) #UNCOMMENT WHEN READY
+            
+            if max_url_count < count:
+                # if this url has more valid urls than the current max count url
+                global max_url_count
+                global max_url
+                max_url = i.url
+                max_url_count = count
 
     save_to_file()
        
@@ -168,15 +183,18 @@ def is_valid(url):
             + "|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1" \
             + "|thmx|mso|arff|rtf|jar|csv"\
             + "|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
-        if not state: #not a valid link
+
+        if not state: #Keep track of invalid links encountered
             global invalid_links
             invalid_links += 1
             print "\nTHAT WAS AN INVALID LINK\n"
-        else: #valid link
+
+        else: #Keep track of subdomains visited and the number of different urls processed from each subdomain
             split_url = url.split('.')
             subdomain = split_url[1]
             global subdomaincount
             subdomaincount[subdomain] = subdomaincount.get(subdomain, 0) + 1
+            
         return state
 
 
@@ -205,3 +223,26 @@ def scraped_url_is_valid(url):
 
     except TypeError:
         print ("TypeError for ", parsed)
+
+def absolute_form(url):
+    '''
+    Return True if url is in absolute form
+    otherwise False
+    '''
+    parsed = urlparsed(url)
+
+    if parsed.scheme not in set(["http", "https"]):
+        return False
+    return True
+
+def relative_to_absolute_url(domain, relativeURL):
+    '''
+    Function returns the absolute form of a URL given the domain and relative URL
+
+    Domain Example: 'http://www.ics.uci.edu'
+    relativeURL Example: '/about/equity/'
+    output: 'http://www.ics.uci.edu/about/equity/' 
+
+    '''
+    return domain + relativeURL
+
