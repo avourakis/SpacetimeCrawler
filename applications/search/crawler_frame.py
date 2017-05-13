@@ -152,14 +152,15 @@ def extract_next_links(rawDatas):
 
                     #outputLinks.append(absoluteURL) #UNCOMMENT WHEN READY
                 else:
+                    pass
                     #outputLinks.append(url) #UNCOMMENT WHEN READY
-            
-            if max_url_count < count:
-                # if this url has more valid urls than the current max count url
-                global max_url_count
-                global max_url
-                max_url = i.url
-                max_url_count = count
+        
+        if max_url_count < count:
+            # if this url has more valid urls than the current max count url
+            global max_url_count
+            global max_url
+            max_url = i.url
+            max_url_count = count
 
     save_to_file()
        
@@ -185,6 +186,7 @@ def is_valid(url):
             + "|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 
         if not state: #Keep track of invalid links encountered
+            print(url)
             global invalid_links
             invalid_links += 1
             print "\nTHAT WAS AN INVALID LINK\n"
@@ -194,7 +196,8 @@ def is_valid(url):
             subdomain = split_url[1]
             global subdomaincount
             subdomaincount[subdomain] = subdomaincount.get(subdomain, 0) + 1
-            
+            print(subdomaincount)
+
         return state
 
 
